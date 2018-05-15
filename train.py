@@ -203,7 +203,8 @@ def make_dataset_iter(datasets, fields, opt, is_train=True):
             return max(src_elements, tgt_elements)
 
     device = opt.gpuid[0] if opt.gpuid else -1
-
+    # Change for torch0.4
+    # device = torch.device('cuda:%s' % (str(opt.gpuid[0]))) if opt.gpuid else torch.device('cpu')
     return DatasetLazyIter(datasets, fields, batch_size, batch_size_fn,
                            device, is_train)
 
@@ -272,7 +273,7 @@ def train_model(model, fields, optim, data_type, model_opt):
             valid_stats.log("valid", experiment, optim.lr)
         if opt.tensorboard:
             train_stats.log_tensorboard("train", writer, optim.lr, epoch)
-            train_stats.log_tensorboard("valid", writer, optim.lr, epoch)
+            valid_stats.log_tensorboard("valid", writer, optim.lr, epoch)
 
         # 4. Update the learning rate
         trainer.epoch_step(valid_stats.ppl(), epoch)

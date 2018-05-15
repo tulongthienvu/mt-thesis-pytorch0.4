@@ -1,5 +1,5 @@
 import torch.optim as optim
-from torch.nn.utils import clip_grad_norm
+from torch.nn.utils import clip_grad_norm_
 
 
 class MultipleOptimizer(object):
@@ -122,7 +122,9 @@ class Optim(object):
                      self._step * self.warmup_steps**(-1.5))))
 
         if self.max_grad_norm:
-            clip_grad_norm(self.params, self.max_grad_norm)
+            # clip_grad_norm(self.params, self.max_grad_norm)
+            # Change for torch0.4
+            clip_grad_norm_(self.params, self.max_grad_norm)
         self.optimizer.step()
 
     def update_learning_rate(self, ppl, epoch):
@@ -141,5 +143,22 @@ class Optim(object):
             print("Decaying learning rate to %g" % self.lr)
 
         self.last_ppl = ppl
+        if self.method != 'sparseadam':
+            self.optimizer.param_groups[0]['lr'] = self.lr
+
+    # My own update_learning_rate method
+    def update_learning_rate(self, epoch):
+        """
+        Decay learning if and only if we hit the start_decay_at limit. (simplified version).
+        :param epoch: current epoch
+        :return:
+        """
+        if self.start_decay_at is not None and epoch >= self.start_decay_at:
+            self.start_decay = True
+
+        if self.start_decay:
+            self.lr = self.lr * self.lr_decay
+            print("Decaying learning rate to %g" % self.lr)
+
         if self.method != 'sparseadam':
             self.optimizer.param_groups[0]['lr'] = self.lr

@@ -121,7 +121,9 @@ class LossComputeBase(nn.Module):
 
         for shard in shards(shard_state, shard_size):
             loss, stats = self._compute_loss(batch, **shard)
-            loss.div(normalization).backward()
+            # loss.div(normalization).backward()
+            # Change for torch0.4
+            loss.div(normalization).backward(retain_graph=True)
             batch_stats.update(stats)
 
         return batch_stats
@@ -141,7 +143,9 @@ class LossComputeBase(nn.Module):
         num_correct = pred.eq(target) \
                           .masked_select(non_padding) \
                           .sum()
-        return onmt.Statistics(loss[0], non_padding.sum(), num_correct)
+        # return onmt.Statistics(loss[0], non_padding.sum(), num_correct)
+        # Change for torch0.4
+        return onmt.Statistics(loss.item(), non_padding.sum().item(), num_correct.item())
 
     def _bottle(self, v):
         return v.view(-1, v.size(2))

@@ -8,6 +8,7 @@ from torch.nn.utils.rnn import pack_padded_sequence as pack
 from torch.nn.utils.rnn import pad_packed_sequence as unpack
 
 import onmt
+# import onmt.modules
 from onmt.Utils import aeq
 
 
@@ -267,7 +268,12 @@ class RNNDecoderBase(nn.Module):
 
         # Set up the standard attention.
         self._coverage = coverage_attn
-        self.attn = onmt.modules.GlobalAttention(
+        # self.attn = onmt.modules.GlobalAttention(
+        #     hidden_size, coverage=coverage_attn,
+        #     attn_type=attn_type
+        # )
+        # Local attention
+        self.attn = onmt.modules.LocalAttention(
             hidden_size, coverage=coverage_attn,
             attn_type=attn_type
         )
@@ -321,6 +327,8 @@ class RNNDecoderBase(nn.Module):
 
         # Concatenates sequence of tensors along a new dimension.
         decoder_outputs = torch.stack(decoder_outputs)
+        # Change for torch0.4
+
         for k in attns:
             attns[k] = torch.stack(attns[k])
 
@@ -608,8 +616,9 @@ class DecoderState(object):
     def detach(self):
         for h in self._all:
             if h is not None:
-                h.detach_()
-
+                # h.detach_()
+                # Change for torch0.4
+                h = h.detach()
     def beam_update(self, idx, positions, beam_size):
         for e in self._all:
             sizes = e.size()

@@ -42,12 +42,18 @@ class Statistics(object):
         self.n_correct += stat.n_correct
 
     def accuracy(self):
+        # return 100 * (self.n_correct / self.n_words)
+        # Change for torch0.4
         return 100 * (self.n_correct / self.n_words)
 
     def xent(self):
+        # return self.loss / self.n_words
+        # Change for torch0.4
         return self.loss / self.n_words
 
     def ppl(self):
+        # return math.exp(min(self.loss / self.n_words, 100))
+        # Change for torch0.4
         return math.exp(min(self.loss / self.n_words, 100))
 
     def elapsed_time(self):
@@ -237,7 +243,9 @@ class Trainer(object):
         return stats
 
     def epoch_step(self, ppl, epoch):
-        return self.optim.update_learning_rate(ppl, epoch)
+        # return self.optim.update_learning_rate(ppl, epoch)
+        # Call my own update_learning_rate
+        return self.optim.update_learning_rate(epoch)
 
     def drop_checkpoint(self, opt, epoch, fields, valid_stats):
         """ Save a resumable checkpoint.
