@@ -55,25 +55,25 @@ class GlobalAttention(nn.Module):
     Args:
        dim (int): dimensionality of query and key
        coverage (bool): use coverage term
-       attn_type (str): type of attention to use, options [dot,general,mlp]
+       attn_score_func (str): type of attention to use, options [dot,general,mlp]
 
     """
-    def __init__(self, dim, coverage=False, attn_type="dot"):
+    def __init__(self, dim, coverage=False, attn_score_func="dot"):
         super(GlobalAttention, self).__init__()
 
         self.dim = dim
-        self.attn_type = attn_type
-        assert (self.attn_type in ["dot", "general", "mlp"]), (
+        self.attn_score_func = attn_score_func
+        assert (self.attn_score_func in ["dot", "general", "mlp"]), (
                 "Please select a valid attention type.")
 
-        if self.attn_type == "general":
+        if self.attn_score_func == "general":
             self.linear_in = nn.Linear(dim, dim, bias=False)
-        elif self.attn_type == "mlp":
+        elif self.attn_score_func == "mlp":
             self.linear_context = nn.Linear(dim, dim, bias=False)
             self.linear_query = nn.Linear(dim, dim, bias=True)
             self.v = nn.Linear(dim, 1, bias=False)
         # mlp wants it with bias
-        out_bias = self.attn_type == "mlp"
+        out_bias = self.attn_score_func == "mlp"
         self.linear_out = nn.Linear(dim*2, dim, bias=out_bias)
 
         self.sm = nn.Softmax(dim=-1)
@@ -102,8 +102,8 @@ class GlobalAttention(nn.Module):
         aeq(src_dim, tgt_dim)
         aeq(self.dim, src_dim)
 
-        if self.attn_type in ["general", "dot"]:
-            if self.attn_type == "general":
+        if self.attn_score_func in ["general", "dot"]:
+            if self.attn_score_func == "general":
                 h_t_ = h_t.view(tgt_batch*tgt_len, tgt_dim)
                 h_t_ = self.linear_in(h_t_)
                 h_t = h_t_.view(tgt_batch, tgt_len, tgt_dim)
@@ -183,7 +183,7 @@ class GlobalAttention(nn.Module):
         # concatenate
         concat_c = torch.cat([c, input], 2).view(batch*targetL, dim*2)
         attn_h = self.linear_out(concat_c).view(batch, targetL, dim)
-        if self.attn_type in ["general", "dot"]:
+        if self.attn_score_func in ["general", "dot"]:
             attn_h = self.tanh(attn_h)
 
         if one_step:

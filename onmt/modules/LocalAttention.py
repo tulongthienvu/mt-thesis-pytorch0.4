@@ -55,25 +55,25 @@ class LocalAttention(nn.Module):
     Args:
        dim (int): dimensionality of query and key
        coverage (bool): use coverage term
-       attn_type (str): type of attention to use, options [dot,general,mlp]
+       attn_score_func (str): type of attention to use, options [dot,general,mlp]
 
     """
-    def __init__(self, dim, coverage=False, attn_type="dot"):
+    def __init__(self, dim, coverage=False, attn_model="local-p", attn_score_func="dot", window_size=10):
         super(LocalAttention, self).__init__()
 
         self.dim = dim
-        self.attn_type = attn_type
-        assert (self.attn_type in ["dot", "general", "mlp"]), (
+        self.attn_score_func = attn_score_func
+        assert (self.attn_score_func in ["dot", "general", "mlp"]), (
                 "Please select a valid attention type.")
 
-        if self.attn_type == "general":
+        if self.attn_score_func == "general":
             self.linear_in = nn.Linear(dim, dim, bias=False)
-        elif self.attn_type == "mlp":
+        elif self.attn_score_func == "mlp":
             self.linear_context = nn.Linear(dim, dim, bias=False)
             self.linear_query = nn.Linear(dim, dim, bias=True)
             self.v = nn.Linear(dim, 1, bias=False)
         # mlp wants it with bias
-        out_bias = self.attn_type == "mlp"
+        out_bias = self.attn_score_func == "mlp"
         self.linear_out = nn.Linear(dim*2, dim, bias=out_bias)
 
         self.sm = nn.Softmax(dim=-1)
@@ -82,10 +82,12 @@ class LocalAttention(nn.Module):
         if coverage:
             self.linear_cover = nn.Linear(1, dim, bias=False)
         # Local attention
-        self.D = 10
-        self.linear_predictive = nn.Linear(dim, dim, bias=False)
-        self.v_predictive = nn.Linear(dim, 1, bias=False)
-        self.sigmoid = nn.Sigmoid()
+        self.attn_model = attn_model
+        self.D = window_size
+        if self.attn_model == "local-p":
+            self.linear_predictive = nn.Linear(dim, dim, bias=False)
+            self.v_predictive = nn.Linear(dim, 1, bias=False)
+            self.sigmoid = nn.Sigmoid()
 
     def score(self, h_t, h_s, mask):
         """
@@ -108,17 +110,14 @@ class LocalAttention(nn.Module):
         aeq(src_dim, tgt_dim)
         aeq(self.dim, src_dim)
 
-        if self.attn_type in ["general", "dot"]:
-            if self.attn_type == "general":
+        if self.attn_score_func in ["general", "dot"]:
+            if self.attn_score_func == "general":
                 h_t_ = h_t.view(tgt_batch*tgt_len, tgt_dim)
                 h_t_ = self.linear_in(h_t_)
                 h_t = h_t_.view(tgt_batch, tgt_len, tgt_dim)
             h_s_ = h_s.transpose(1, 2)
 
             # Local attention
-            # Create a mask to filter all scores that are outside of the window with size 2D
-            # mask = torch.arange(tgt_len).repeat(tgt_batch, 1).view(tgt_batch, tgt_len, 1)   # batch x tgt_len x src_len
-            # mask = (mask > p_t - self.D).int() & (mask < p_t + self.D).int()    # batch x tgt_len x src_len
             # (batch, t_len, d) x (batch, d, s_len) --> (batch, t_len, s_len)
             return torch.bmm(h_t, h_s_) * mask.float()
         else:
@@ -177,14 +176,14 @@ class LocalAttention(nn.Module):
 
         # compute attention scores, as in Luong et al.
         # Local attention
-        # Generate position p_t
-        # p_t = torch.arange(targetL).repeat(batch, targetL, 1)
-        p_t = torch.arange(targetL).repeat(batch, 1).view(batch, targetL, 1)
-        # Local attention
-        p_t = p_t * self.sigmoid(self.v_predictive(self.tanh(self.linear_predictive(input.view(-1, dim))))).view(batch, targetL, 1)
+        # Generate aligned position p_t
+        p_t = torch.arange(targetL, device=input.device).repeat(batch, 1).view(batch, targetL, 1)
+        if self.attn_model == "local-p": # If predictive alignment model
+            p_t = p_t * self.sigmoid(self.v_predictive(self.tanh(self.linear_predictive(input.view(-1, dim))))).view(batch, targetL, 1)
         # Create a mask to filter all scores that are outside of the window with size 2D
-        indices_of_sources = torch.arange(sourceL).repeat(batch, targetL, 1)  # batch x tgt_len x src_len
+        indices_of_sources = torch.arange(sourceL, device=input.device).repeat(batch, targetL, 1)  # batch x tgt_len x src_len
         mask_local = (indices_of_sources > p_t - self.D).int() & (indices_of_sources < p_t + self.D).int()  # batch x tgt_len x src_len
+        # Calculate alignment scores
         align = self.score(input, memory_bank, mask_local)
 
         if memory_lengths is not None:
@@ -196,8 +195,10 @@ class LocalAttention(nn.Module):
         align_vectors = self.sm(align.view(batch*targetL, sourceL))
         align_vectors = align_vectors.view(batch, targetL, sourceL)
         # Local attention
-        gaussian = torch.exp(-1.0*(((indices_of_sources - p_t) ** 2))/(2*(self.D/2.0)**2)) * mask_local.float() # batch x tgt_len x src_len
-        align_vectors = align_vectors * gaussian
+        if self.attn_model == "local-p": # If predictive alignment model
+            # Favor alignment points near p_t  by truncated Gaussian distribution
+            gaussian = torch.exp(-1.0*(((indices_of_sources - p_t) ** 2))/(2*(self.D/2.0)**2)) * mask_local.float() # batch x tgt_len x src_len
+            align_vectors = align_vectors * gaussian
         # each context vector c_t is the weighted average
         # over all the source hidden states
         c = torch.bmm(align_vectors, memory_bank)
@@ -205,7 +206,7 @@ class LocalAttention(nn.Module):
         # concatenate
         concat_c = torch.cat([c, input], 2).view(batch*targetL, dim*2)
         attn_h = self.linear_out(concat_c).view(batch, targetL, dim)
-        if self.attn_type in ["general", "dot"]:
+        if self.attn_score_func in ["general", "dot"]:
             attn_h = self.tanh(attn_h)
 
         if one_step:

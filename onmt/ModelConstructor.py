@@ -95,7 +95,9 @@ def make_decoder(opt, embeddings):
     elif opt.input_feed:
         return InputFeedRNNDecoder(opt.rnn_type, opt.brnn,
                                    opt.dec_layers, opt.rnn_size,
-                                   opt.global_attention,
+                                   opt.attention_model,
+                                   opt.attention_score_function,
+                                   opt.window_size,
                                    opt.coverage_attn,
                                    opt.context_gate,
                                    opt.copy_attn,
@@ -105,7 +107,9 @@ def make_decoder(opt, embeddings):
     else:
         return StdRNNDecoder(opt.rnn_type, opt.brnn,
                              opt.dec_layers, opt.rnn_size,
-                             opt.global_attention,
+                             opt.attention_model,
+                             opt.attention_score_function,
+                             opt.window_size,
                              opt.coverage_attn,
                              opt.context_gate,
                              opt.copy_attn,

@@ -100,10 +100,21 @@ def model_opts(parser):
 
     # Attention options
     group = parser.add_argument_group('Model- Attention')
-    group.add_argument('-global_attention', type=str, default='general',
+    # group.add_argument('-global_attention', type=str, default='general',
+    #                    choices=['dot', 'general', 'mlp'],
+    #                    help="""The attention type to use:
+    #                    dotprod or general (Luong) or MLP (Bahdanau)""")
+    group.add_argument('-attention_model', type=str, default='global',
+                       choices=['global', 'local-m', 'local-p', 'none'],
+                       help="""The attention model to use:
+                           Global Attention or Local Attention or non-Attention""")
+    group.add_argument('-attention_score_function', type=str, default='general',
                        choices=['dot', 'general', 'mlp'],
-                       help="""The attention type to use:
-                       dotprod or general (Luong) or MLP (Bahdanau)""")
+                       help="""The score function of attention to use:
+                           dotprod or general (Luong) or MLP (Bahdanau)""")
+    group.add_argument('-attention_window_size', type=int, default=10,
+                       help="""Window size of local attention."""
+                       )
 
     # Genenerator and loss options.
     group.add_argument('-copy_attn', action="store_true",

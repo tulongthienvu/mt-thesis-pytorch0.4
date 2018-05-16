@@ -237,7 +237,7 @@ class RNNDecoderBase(nn.Module):
        embeddings (:obj:`onmt.modules.Embeddings`): embedding module to use
     """
     def __init__(self, rnn_type, bidirectional_encoder, num_layers,
-                 hidden_size, attn_type="general",
+                 hidden_size, attn_model="global", attn_score_func="general", window_size=10,
                  coverage_attn=False, context_gate=None,
                  copy_attn=False, dropout=0.0, embeddings=None,
                  reuse_copy_attn=False):
@@ -268,22 +268,34 @@ class RNNDecoderBase(nn.Module):
 
         # Set up the standard attention.
         self._coverage = coverage_attn
-        # self.attn = onmt.modules.GlobalAttention(
-        #     hidden_size, coverage=coverage_attn,
-        #     attn_type=attn_type
-        # )
-        # Local attention
-        self.attn = onmt.modules.LocalAttention(
-            hidden_size, coverage=coverage_attn,
-            attn_type=attn_type
-        )
-
+        # Construct attention model
+        if attn_model == "global":
+            self.attn = onmt.modules.GlobalAttention(
+                hidden_size, coverage=coverage_attn,
+                attn_score_func=attn_score_func
+            )
+        elif attn_model == "local-p" or attn_model == "local-m":
+            self.attn = onmt.modules.LocalAttention(
+                hidden_size, coverage=coverage_attn,
+                attn_model=attn_model,
+                attn_score_func=attn_score_func,
+                window_size=window_size
+            )
         # Set up a separated copy attention layer, if needed.
         self._copy = False
         if copy_attn and not reuse_copy_attn:
-            self.copy_attn = onmt.modules.GlobalAttention(
-                hidden_size, attn_type=attn_type
-            )
+            if attn_model == "global":
+                self.attn = onmt.modules.GlobalAttention(
+                    hidden_size, coverage=coverage_attn,
+                    attn_score_func=attn_score_func
+                )
+            elif attn_model == "local-p" or attn_model == "local-m":
+                self.attn = onmt.modules.LocalAttention(
+                    hidden_size, coverage=coverage_attn,
+                    attn_model=attn_model,
+                    attn_score_func=attn_score_func,
+                    window_size=window_size
+                )
         if copy_attn:
             self._copy = True
         self._reuse_copy_attn = reuse_copy_attn
@@ -326,11 +338,12 @@ class RNNDecoderBase(nn.Module):
         state.update_state(decoder_final, final_output.unsqueeze(0), coverage)
 
         # Concatenates sequence of tensors along a new dimension.
-        decoder_outputs = torch.stack(decoder_outputs)
         # Change for torch0.4
-
+        if type(decoder_outputs) is not torch.Tensor: # If input feeding is being used
+            decoder_outputs = torch.stack(decoder_outputs)
         for k in attns:
-            attns[k] = torch.stack(attns[k])
+            if type(attns[k]) is not torch.Tensor:
+                attns[k] = torch.stack(attns[k])
 
         return decoder_outputs, state, attns
 
