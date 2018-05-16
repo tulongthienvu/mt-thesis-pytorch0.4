@@ -281,6 +281,8 @@ class RNNDecoderBase(nn.Module):
                 attn_score_func=attn_score_func,
                 window_size=window_size
             )
+        elif attn_model == "none":
+            self.attn = None
         # Set up a separated copy attention layer, if needed.
         self._copy = False
         if copy_attn and not reuse_copy_attn:
@@ -363,6 +365,90 @@ class RNNDecoderBase(nn.Module):
             return RNNDecoderState(self.hidden_size,
                                    _fix_enc_hidden(encoder_final))
 
+
+class NonAttentionRNNDecoder(RNNDecoderBase):
+    """
+    Standard fully batched RNN decoder with attention.
+    Faster implementation, uses CuDNN for implementation.
+    See :obj:`RNNDecoderBase` for options.
+
+
+    Based around the approach from
+    "Neural Machine Translation By Jointly Learning To Align and Translate"
+    :cite:`Bahdanau2015`
+
+
+    Implemented without input_feeding and currently with no `coverage_attn`
+    or `copy_attn` support.
+    """
+    def _run_forward_pass(self, tgt, memory_bank, state, memory_lengths=None):
+        """
+        Private helper for running the specific RNN forward pass.
+        Must be overriden by all subclasses.
+        Args:
+            tgt (LongTensor): a sequence of input tokens tensors
+                                 [len x batch x nfeats].
+            memory_bank (FloatTensor): output(tensor sequence) from the encoder
+                        RNN of size (src_len x batch x hidden_size).
+            state (FloatTensor): hidden state from the encoder RNN for
+                                 initializing the decoder.
+            memory_lengths (LongTensor): the source memory_bank lengths.
+        Returns:
+            decoder_final (Variable): final hidden state from the decoder.
+            decoder_outputs ([FloatTensor]): an array of output of every time
+                                     step from the decoder.
+            attns (dict of (str, [FloatTensor]): a dictionary of different
+                            type of attention Tensor array of every time
+                            step from the decoder.
+        """
+        assert not self._copy  # TODO, no support yet.
+        assert not self._coverage  # TODO, no support yet.
+
+        # Initialize local and return variables.
+        attns = {}
+        emb = self.embeddings(tgt)
+
+        # Run the forward pass of the RNN.
+        if isinstance(self.rnn, nn.GRU):
+            rnn_output, decoder_final = self.rnn(emb, state.hidden[0])
+        else:
+            rnn_output, decoder_final = self.rnn(emb, state.hidden)
+
+        # Check
+        tgt_len, tgt_batch, _ = tgt.size()
+        output_len, output_batch, _ = rnn_output.size()
+        aeq(tgt_len, output_len)
+        aeq(tgt_batch, output_batch)
+        # END
+
+        decoder_outputs = rnn_output
+        src_len = memory_bank.size()[0]
+        p_attn = torch.zeros((tgt_len, tgt_batch, src_len), device=decoder_outputs.device)
+        attns["std"] = p_attn
+
+        # Calculate the context gate.
+        if self.context_gate is not None:
+            decoder_outputs = self.context_gate(
+                emb.view(-1, emb.size(2)),
+                rnn_output.view(-1, rnn_output.size(2)),
+                decoder_outputs.view(-1, decoder_outputs.size(2))
+            )
+            decoder_outputs = \
+                decoder_outputs.view(tgt_len, tgt_batch, self.hidden_size)
+
+        decoder_outputs = self.dropout(decoder_outputs)
+        return decoder_final, decoder_outputs, attns
+
+    def _build_rnn(self, rnn_type, **kwargs):
+        rnn, _ = rnn_factory(rnn_type, **kwargs)
+        return rnn
+
+    @property
+    def _input_size(self):
+        """
+        Private helper returning the number of expected features.
+        """
+        return self.embeddings.embedding_size
 
 class StdRNNDecoder(RNNDecoderBase):
     """
