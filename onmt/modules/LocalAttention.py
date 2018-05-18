@@ -184,7 +184,7 @@ class LocalAttention(nn.Module):
             p_t = torch.arange(targetL, device=input.device).repeat(batch, 1).view(batch, targetL, 1)
         # Create a mask to filter all scores that are outside of the window with size 2D
         indices_of_sources = torch.arange(sourceL, device=input.device).repeat(batch, targetL, 1)  # batch x tgt_len x src_len
-        mask_local = (indices_of_sources > p_t - self.D).int() & (indices_of_sources < p_t + self.D).int()  # batch x tgt_len x src_len
+        mask_local = (indices_of_sources >= p_t - self.D).int() & (indices_of_sources <= p_t + self.D).int()  # batch x tgt_len x src_len
         # Calculate alignment scores
         align = self.score(input, memory_bank, mask_local)
 
@@ -194,8 +194,8 @@ class LocalAttention(nn.Module):
             align.data.masked_fill_(1 - mask, -float('inf'))
 
         # Softmax to normalize attention weights
-        align_vectors = self.sm(align.view(batch*targetL, sourceL))
-        align_vectors = align_vectors.view(batch, targetL, sourceL)
+        align_vectors = self.sm(align.view(batch*targetL, sourceL)).view(batch, targetL, sourceL)
+        # align_vectors = align_vectors.view(batch, targetL, sourceL)
         # Local attention
         if self.attn_model == "local-p": # If predictive alignment model
             # Favor alignment points near p_t  by truncated Gaussian distribution
