@@ -177,9 +177,11 @@ class LocalAttention(nn.Module):
         # compute attention scores, as in Luong et al.
         # Local attention
         # Generate aligned position p_t
-        p_t = torch.arange(targetL, device=input.device).repeat(batch, 1).view(batch, targetL, 1)
         if self.attn_model == "local-p": # If predictive alignment model
+            p_t = torch.zeros((batch, targetL, 1), device=input.device) + targetL
             p_t = p_t * self.sigmoid(self.v_predictive(self.tanh(self.linear_predictive(input.view(-1, dim))))).view(batch, targetL, 1)
+        elif self.attn_model == "local-m": # If monotonic alignment model
+            p_t = torch.arange(targetL, device=input.device).repeat(batch, 1).view(batch, targetL, 1)
         # Create a mask to filter all scores that are outside of the window with size 2D
         indices_of_sources = torch.arange(sourceL, device=input.device).repeat(batch, targetL, 1)  # batch x tgt_len x src_len
         mask_local = (indices_of_sources > p_t - self.D).int() & (indices_of_sources < p_t + self.D).int()  # batch x tgt_len x src_len
