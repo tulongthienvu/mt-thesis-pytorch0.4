@@ -178,13 +178,13 @@ class LocalAttention(nn.Module):
         # Local attention
         # Generate aligned position p_t
         if self.attn_model == "local-p": # If predictive alignment model
-            p_t = torch.zeros((batch, targetL, 1), device=input.device) + (sourceL - 1)
+            p_t = torch.zeros((batch, targetL, 1), device=input.device) + memory_lengths.view(batch, 1, 1).float() - 1.0 # S
             p_t = p_t * self.sigmoid(self.v_predictive(self.tanh(self.linear_predictive(input.view(-1, dim))))).view(batch, targetL, 1)
         elif self.attn_model == "local-m": # If monotonic alignment model
             p_t = torch.arange(targetL, device=input.device).repeat(batch, 1).view(batch, targetL, 1)
         # Create a mask to filter all scores that are outside of the window with size 2D
         indices_of_sources = torch.arange(sourceL, device=input.device).repeat(batch, targetL, 1)  # batch x tgt_len x src_len
-        mask_local = (indices_of_sources >= p_t - self.D).int() & (indices_of_sources <= p_t + self.D).int()  # batch x tgt_len x src_len
+        mask_local = (indices_of_sources >= p_t - self.D).int() & (indices_of_sources <= p_t + self.D).int() & (indices_of_sources <= memory_lengths.view(batch, 1, 1).float() - 1.0).int() # batch x tgt_len x src_len
         # Calculate alignment scores
         align = self.score(input, memory_bank, mask_local)
 
