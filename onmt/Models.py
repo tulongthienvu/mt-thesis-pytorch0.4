@@ -237,7 +237,7 @@ class RNNDecoderBase(nn.Module):
        embeddings (:obj:`onmt.modules.Embeddings`): embedding module to use
     """
     def __init__(self, rnn_type, bidirectional_encoder, num_layers,
-                 hidden_size, attn_model="global", attn_score_func="general", window_size=10,
+                 hidden_size, attn_model="global", attn_score_func="general", attention_window_size=10,
                  coverage_attn=False, context_gate=None,
                  copy_attn=False, dropout=0.0, embeddings=None,
                  reuse_copy_attn=False):
@@ -279,7 +279,7 @@ class RNNDecoderBase(nn.Module):
                 hidden_size, coverage=coverage_attn,
                 attn_model=attn_model,
                 attn_score_func=attn_score_func,
-                window_size=window_size
+                attention_window_size=attention_window_size
             )
         elif attn_model == "none":
             self.attn = None
@@ -296,7 +296,7 @@ class RNNDecoderBase(nn.Module):
                     hidden_size, coverage=coverage_attn,
                     attn_model=attn_model,
                     attn_score_func=attn_score_func,
-                    window_size=window_size
+                    attention_window_size=attention_window_size
                 )
         if copy_attn:
             self._copy = True

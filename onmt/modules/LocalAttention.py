@@ -58,7 +58,7 @@ class LocalAttention(nn.Module):
        attn_score_func (str): type of attention to use, options [dot,general,mlp]
 
     """
-    def __init__(self, dim, coverage=False, attn_model="local-p", attn_score_func="dot", window_size=10):
+    def __init__(self, dim, coverage=False, attn_model="local-p", attn_score_func="dot", attention_window_size=10):
         super(LocalAttention, self).__init__()
 
         self.dim = dim
@@ -83,7 +83,7 @@ class LocalAttention(nn.Module):
             self.linear_cover = nn.Linear(1, dim, bias=False)
         # Local attention
         self.attn_model = attn_model
-        self.D = window_size
+        self.D = attention_window_size
         if self.attn_model == "local-p":
             self.linear_predictive = nn.Linear(dim, dim, bias=False)
             self.v_predictive = nn.Linear(dim, 1, bias=False)
