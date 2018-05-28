@@ -188,18 +188,19 @@ class LocalAttention(nn.Module):
         # Calculate alignment scores
         align = self.score(input, memory_bank, mask_local)
 
-        if memory_lengths is not None:
-            mask = sequence_mask(memory_lengths)
-            mask = mask.unsqueeze(1)  # Make it broadcastable.
-            align.data.masked_fill_(1 - mask, -float('inf'))
-
+        # if memory_lengths is not None:
+        #     mask = sequence_mask(memory_lengths)
+        #     mask = mask.unsqueeze(1)  # Make it broadcastable.
+        #     align.data.masked_fill_(1 - mask, -float('inf'))
+        align.data.masked_fill_(1 - mask_local.byte(), -float('inf'))
         # Softmax to normalize attention weights
         align_vectors = self.sm(align.view(batch*targetL, sourceL)).view(batch, targetL, sourceL)
         # align_vectors = align_vectors.view(batch, targetL, sourceL)
         # Local attention
         if self.attn_model == "local-p": # If predictive alignment model
             # Favor alignment points near p_t  by truncated Gaussian distribution
-            gaussian = torch.exp(-1.0*(((indices_of_sources - p_t) ** 2))/(2*(self.D/2.0)**2)) * mask_local.float() # batch x tgt_len x src_len
+            # gaussian = torch.exp(-1.0*(((indices_of_sources - p_t) ** 2))/(2*(self.D/2.0)**2)) * mask_local.float() # batch x tgt_len x src_len
+            gaussian = torch.exp(-1.0 * (((indices_of_sources - p_t) ** 2)) / (2 * (self.D / 2.0) ** 2))
             align_vectors = align_vectors * gaussian
         # each context vector c_t is the weighted average
         # over all the source hidden states
