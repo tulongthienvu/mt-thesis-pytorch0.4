@@ -2,8 +2,9 @@
 ***Preprocess***
 -train_src data/wmt14/train.en -train_tgt data/wmt14/train.de -valid_src data/wmt14/newstest2014.en -valid_tgt data/wmt14/newstest2014.de -save_data data/wmt14.atok.low -lower
 >>Reversed
--train_src data/wmt14/train_reversed.en -train_tgt data/wmt14/train.de -valid_src data/wmt14/newstest2013_reversed.en -valid_tgt data/wmt14/newstest2013.de -save_data data/wmt14.atok.low_reversed_newstest2013_torch04 -lower
+-train_src data/wmt14/train_reversed.en -train_tgt data/wmt14/train.de -valid_src data/wmt14/newstest2013_reversed.en -valid_tgt data/wmt14/newstest2013.de -save_data data/wmt14.atok.low_reversed_newstest2013_torch04_filterlen
 
+python preprocess.py -train_src ../data/wmt14/train_reversed.en -train_tgt ../data/wmt14/train.de -valid_src ../data/wmt14/newstest2013_reversed.en -valid_tgt ../data/wmt14/newstest2013.de -save_data ../data/wmt14.atok.low_reversed_newstest2013_torch04_filterlen_test
 
 ***Train***
 -data data/wmt14.atok.low.train -save_model wmt14_model -gpuid 0 -encoder_type brnn -decoder_type rnn -dropout 0.2 -epochs 2 -global_attention general -input_feed 1 -report_every 1000

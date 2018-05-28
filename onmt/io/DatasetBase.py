@@ -4,7 +4,7 @@ from itertools import chain
 import torchtext
 
 
-PAD_WORD = '<blank>'
+PAD_WORD = '<pad>'
 UNK_WORD = '<unk>'
 UNK = 0
 BOS_WORD = '<s>'
