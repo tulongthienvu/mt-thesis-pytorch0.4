@@ -119,7 +119,8 @@ class LocalAttention(nn.Module):
 
             # Local attention
             # (batch, t_len, d) x (batch, d, s_len) --> (batch, t_len, s_len)
-            return torch.bmm(h_t, h_s_) * mask.float()
+            # return torch.bmm(h_t, h_s_) * mask.float()
+            return torch.bmm(h_t, h_s_)
         else:
             dim = self.dim
             wq = self.linear_query(h_t.view(-1, dim))
