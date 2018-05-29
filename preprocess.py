@@ -91,12 +91,14 @@ def build_save_text_dataset_in_shards(src_corpus, tgt_corpus, fields,
     index = 0
     while not src_iter.hit_end():
         index += 1
+        # Change to equivalent with Luong's paper
         dataset = onmt.io.TextDataset(
             fields, src_iter, tgt_iter,
             src_iter.num_feats, tgt_iter.num_feats,
             src_seq_length=opt.src_seq_length,
             tgt_seq_length=opt.tgt_seq_length,
-            dynamic_dict=opt.dynamic_dict)
+            dynamic_dict=opt.dynamic_dict,
+            use_filter_pred=corpus_type == 'train')
 
         # We save fields in vocab.pt seperately, so make it empty.
         dataset.fields = []

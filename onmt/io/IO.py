@@ -274,6 +274,7 @@ def build_vocab(train_dataset_files, fields, data_type, share_vocab,
                 word = line.strip().split()[0]
                 tgt_vocab.add(word)
 
+    # Change to equivalent with Luong's paper, if don't want to be same with the paper, uncomment these line below
     for path in train_dataset_files:
         dataset = torch.load(path)
         print(" * reloading %s." % path)
@@ -287,7 +288,11 @@ def build_vocab(train_dataset_files, fields, data_type, share_vocab,
                 elif k == 'tgt' and tgt_vocab:
                     val = [item for item in val if item in tgt_vocab]
                 counter[k].update(val)
-
+    # Change to equivalent with Luong's paper
+    for word in src_vocab:
+        counter['src'][word] += 1
+    for word in tgt_vocab:
+        counter['tgt'][word] += 1
     _build_field_vocab(fields["tgt"], counter["tgt"],
                        max_size=tgt_vocab_size,
                        min_freq=tgt_words_min_frequency)
