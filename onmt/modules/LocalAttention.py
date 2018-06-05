@@ -180,7 +180,9 @@ class LocalAttention(nn.Module):
         # Generate aligned position p_t
         if self.attn_model == "local-p": # If predictive alignment model
             p_t = torch.zeros((batch, targetL, 1), device=input.device) + memory_lengths.view(batch, 1, 1).float() - 1.0 # S
-            p_t = p_t * self.sigmoid(self.v_predictive(self.tanh(self.linear_predictive(input.view(-1, dim))))).view(batch, targetL, 1)
+            # p_t = p_t * self.sigmoid(self.v_predictive(self.tanh(self.linear_predictive(input.view(-1, dim))))).view(batch, targetL, 1)
+            p_t = p_t * self.sigmoid(self.v_predictive(self.tanh(self.linear_predictive(input)))).view(
+                batch, targetL, 1)
         elif self.attn_model == "local-m": # If monotonic alignment model
             p_t = torch.arange(targetL, device=input.device).repeat(batch, 1).view(batch, targetL, 1)
         # Create a mask to filter all scores that are outside of the window with size 2D
@@ -195,7 +197,8 @@ class LocalAttention(nn.Module):
         #     align.data.masked_fill_(1 - mask, -float('inf'))
         align.data.masked_fill_(1 - mask_local.byte(), -float('inf'))
         # Softmax to normalize attention weights
-        align_vectors = self.sm(align.view(batch*targetL, sourceL)).view(batch, targetL, sourceL)
+        # align_vectors = self.sm(align.view(batch*targetL, sourceL)).view(batch, targetL, sourceL)
+        align_vectors = self.sm(align)
         # align_vectors = align_vectors.view(batch, targetL, sourceL)
         # Local attention
         if self.attn_model == "local-p": # If predictive alignment model
