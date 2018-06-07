@@ -6,7 +6,7 @@ from onmt.Utils import aeq, sequence_mask
 
 class LocalAttention(nn.Module):
     """
-    Global attention takes a matrix and a query vector. It
+    Local attention takes a matrix and a query vector. It
     then computes a parameterized convex combination of the matrix
     based on the input query.
 
@@ -89,12 +89,11 @@ class LocalAttention(nn.Module):
             self.v_predictive = nn.Linear(dim, 1, bias=False)
             self.sigmoid = nn.Sigmoid()
 
-    def score(self, h_t, h_s, mask):
+    def score(self, h_t, h_s):
         """
         Args:
           h_t (`FloatTensor`): sequence of queries `[batch x tgt_len x dim]`
           h_s (`FloatTensor`): sequence of sources `[batch x src_len x dim]`
-          mask (`IntTensor`): mask that filters all scores that are outside of the window with size 2D `[batch x tgt_len x 1]`
 
         Returns:
           :obj:`FloatTensor`:
@@ -119,7 +118,6 @@ class LocalAttention(nn.Module):
 
             # Local attention
             # (batch, t_len, d) x (batch, d, s_len) --> (batch, t_len, s_len)
-            # return torch.bmm(h_t, h_s_) * mask.float()
             return torch.bmm(h_t, h_s_)
         else:
             dim = self.dim
@@ -180,31 +178,25 @@ class LocalAttention(nn.Module):
         # Generate aligned position p_t
         if self.attn_model == "local-p": # If predictive alignment model
             p_t = torch.zeros((batch, targetL, 1), device=input.device) + memory_lengths.view(batch, 1, 1).float() - 1.0 # S
-            # p_t = p_t * self.sigmoid(self.v_predictive(self.tanh(self.linear_predictive(input.view(-1, dim))))).view(batch, targetL, 1)
             p_t = p_t * self.sigmoid(self.v_predictive(self.tanh(self.linear_predictive(input)))).view(
-                batch, targetL, 1)
+                batch, targetL, 1) # S * sigmoid
         elif self.attn_model == "local-m": # If monotonic alignment model
             p_t = torch.arange(targetL, device=input.device).repeat(batch, 1).view(batch, targetL, 1)
+        # for reverse word order of sentence, returns correct positions before reverse order
+        p_t = memory_lengths.view(batch, 1, 1).float() - 1 - p_t
         # Create a mask to filter all scores that are outside of the window with size 2D
         indices_of_sources = torch.arange(sourceL, device=input.device).repeat(batch, targetL, 1)  # batch x tgt_len x src_len
-        mask_local = (indices_of_sources >= p_t - self.D).int() & (indices_of_sources <= p_t + self.D).int() & (indices_of_sources <= memory_lengths.view(batch, 1, 1).float() - 1.0).int() # batch x tgt_len x src_len
+        mask_local = (indices_of_sources >= torch.floor(p_t) - self.D).int() & (indices_of_sources <= torch.floor(p_t) + self.D).int() & (indices_of_sources <= memory_lengths.view(batch, 1, 1).float() - 1.0).int() # batch x tgt_len x src_len
         # Calculate alignment scores
-        align = self.score(input, memory_bank, mask_local)
+        align = self.score(input, memory_bank)
 
-        # if memory_lengths is not None:
-        #     mask = sequence_mask(memory_lengths)
-        #     mask = mask.unsqueeze(1)  # Make it broadcastable.
-        #     align.data.masked_fill_(1 - mask, -float('inf'))
-        align.data.masked_fill_(1 - mask_local.byte(), -float('inf'))
+        align.data.masked_fill_(1 - mask_local.byte(), -float('inf')) # Mask the computed alignment scores
         # Softmax to normalize attention weights
-        # align_vectors = self.sm(align.view(batch*targetL, sourceL)).view(batch, targetL, sourceL)
         align_vectors = self.sm(align)
-        # align_vectors = align_vectors.view(batch, targetL, sourceL)
         # Local attention
         if self.attn_model == "local-p": # If predictive alignment model
             # Favor alignment points near p_t  by truncated Gaussian distribution
-            # gaussian = torch.exp(-1.0*(((indices_of_sources - p_t) ** 2))/(2*(self.D/2.0)**2)) * mask_local.float() # batch x tgt_len x src_len
-            gaussian = torch.exp(-1.0 * (((indices_of_sources - p_t) ** 2)) / (2 * (self.D / 2.0) ** 2))
+            gaussian = torch.exp(-1.0 * (((indices_of_sources - p_t) ** 2)) / (2 * (self.D / 2.0) ** 2)) # batch x tgt_len x src_len
             align_vectors = align_vectors * gaussian
         # each context vector c_t is the weighted average
         # over all the source hidden states
