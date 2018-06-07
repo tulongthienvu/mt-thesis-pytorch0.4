@@ -42,7 +42,7 @@ class TranslationBuilder(object):
             for i in range(len(tokens)):
                 if tokens[i] == vocab.itos[onmt.io.UNK]:
                     _, maxIndex = attn[i].max(0)
-                    tokens[i] = src_raw[maxIndex[0]]
+                    tokens[i] = src_raw[maxIndex.item()]
         return tokens
 
     def from_batch(self, translation_batch):
