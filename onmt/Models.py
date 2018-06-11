@@ -752,8 +752,8 @@ class RNNDecoderState(DecoderState):
         # Init the input feed.
         batch_size = self.hidden[0].size(1)
         h_size = (batch_size, hidden_size)
-        self.input_feed = Variable(self.hidden[0].data.new(*h_size).zero_(),
-                                   requires_grad=False).unsqueeze(0)
+        self.input_feed = self.hidden[0].data.new(*h_size).zero_() \
+            .unsqueeze(0)
 
     @property
     def _all(self):
@@ -769,7 +769,7 @@ class RNNDecoderState(DecoderState):
 
     def repeat_beam_size_times(self, beam_size):
         """ Repeat beam_size times along batch dimension. """
-        vars = [torch.tensor(e.data.repeat(1, beam_size, 1), requires_grad=False)
+        vars = [e.data.repeat(1, beam_size, 1)
                 for e in self._all]
         self.hidden = tuple(vars[:-1])
         self.input_feed = vars[-1]
