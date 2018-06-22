@@ -145,7 +145,7 @@ class LocalAttention(nn.Module):
 
         Returns:
           (`FloatTensor`, `FloatTensor`):
-
+100
           * Computed vector `[tgt_len x batch x dim]`
           * Attention distribtutions for each query
              `[tgt_len x batch x src_len]`
@@ -179,14 +179,20 @@ class LocalAttention(nn.Module):
         if self.attn_model == "local-p": # If predictive alignment model
             p_t = torch.zeros((batch, targetL, 1), device=input.device) + memory_lengths.view(batch, 1, 1).float() - 1.0 # S
             p_t = p_t * self.sigmoid(self.v_predictive(self.tanh(self.linear_predictive(input)))).view(
-                batch, targetL, 1) # S * sigmoid
+                batch, targetL, 1) + 1 # S * sigmoid # # Luong implementation
+
         elif self.attn_model == "local-m": # If monotonic alignment model
             p_t = torch.arange(targetL, device=input.device).repeat(batch, 1).view(batch, targetL, 1)
         # for reverse word order of sentence, returns correct positions before reverse order
-        p_t = memory_lengths.view(batch, 1, 1).float() - 1 - p_t
+        # p_t = memory_lengths.view(batch, 1, 1).float() - 1 - p_t
+        # p_t = memory_lengths.view(batch, 1, 1).float() - p_t
+        # Luong implementation
+        source_positions = memory_lengths.view(batch, 1, 1).float() - torch.floor(p_t)
+        p_t = memory_lengths.view(batch, 1, 1).float() - p_t
         # Create a mask to filter all scores that are outside of the window with size 2D
         indices_of_sources = torch.arange(sourceL, device=input.device).repeat(batch, targetL, 1)  # batch x tgt_len x src_len
-        mask_local = (indices_of_sources >= torch.floor(p_t) - self.D).int() & (indices_of_sources <= torch.floor(p_t) + self.D).int() & (indices_of_sources <= memory_lengths.view(batch, 1, 1).float() - 1.0).int() # batch x tgt_len x src_len
+        # mask_local = (indices_of_sources >= torch.floor(p_t) - self.D).int() & (indices_of_sources <= torch.floor(p_t) + self.D).int() & (indices_of_sources <= memory_lengths.view(batch, 1, 1).float() - 1.0).int() # batch x tgt_len x src_len
+        mask_local = (indices_of_sources >= source_positions - self.D).int() & (indices_of_sources <= source_positions + self.D).int() & (indices_of_sources <= memory_lengths.view(batch, 1, 1).float() - 1.0).int()  # batch x tgt_len x src_len
         # Calculate alignment scores
         align = self.score(input, memory_bank)
 
@@ -195,6 +201,8 @@ class LocalAttention(nn.Module):
         align_vectors = self.sm(align)
         # Local attention
         if self.attn_model == "local-p": # If predictive alignment model
+            # Luong implementation for reverse
+            # indices_of_sources = memory_lengths.view(batch, 1, 1).float() - 1 - indices_of_sources
             # Favor alignment points near p_t  by truncated Gaussian distribution
             gaussian = torch.exp(-1.0 * (((indices_of_sources - p_t) ** 2)) / (2 * (self.D / 2.0) ** 2)) # batch x tgt_len x src_len
             align_vectors = align_vectors * gaussian
