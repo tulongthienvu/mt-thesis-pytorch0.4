@@ -83,9 +83,14 @@ class TextDataset(ONMTDatasetBase):
         print("average src size", src_size / len(out_examples),
               len(out_examples))
 
+        # def filter_pred(example):
+        #     return 0 < len(example.src) <= src_seq_length \
+        #        and 0 < len(example.tgt) <= tgt_seq_length
+
         def filter_pred(example):
-            return 0 < len(example.src) <= src_seq_length \
-               and 0 < len(example.tgt) <= tgt_seq_length
+            return 0 < len(example.src) \
+               and 0 < len(example.tgt)
+
 
         filter_pred = filter_pred if use_filter_pred else lambda x: True
 

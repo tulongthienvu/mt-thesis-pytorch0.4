@@ -1,0 +1,1 @@
+python preprocess.py -train_src ../data/iwslt15en-vn/train_reversed.en -train_tgt ../data/iwslt15en-vn/train.vi -valid_src ../data/iwslt15en-vn/tst2012_reversed.en -valid_tgt ../data/iwslt15en-vn/tst2012.vi -save_data ../data/iwslt15en-vn.atok.reversed_torch04 -src_vocab ../data/iwslt15en-vn/vocab.en -tgt_vocab ../data/iwslt15en-vn/vocab.vi > preprocessing_log.txt

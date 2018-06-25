@@ -179,7 +179,7 @@ class LocalAttention(nn.Module):
         if self.attn_model == "local-p": # If predictive alignment model
             p_t = torch.zeros((batch, targetL, 1), device=input.device) + memory_lengths.view(batch, 1, 1).float() - 1.0 # S
             p_t = p_t * self.sigmoid(self.v_predictive(self.tanh(self.linear_predictive(input)))).view(
-                batch, targetL, 1) # S * sigmoid
+                batch, targetL, 1) + 1 # S * sigmoid
         elif self.attn_model == "local-m": # If monotonic alignment model
             p_t = torch.arange(targetL, device=input.device).repeat(batch, 1).view(batch, targetL, 1)
         # for reverse word order of sentence, returns correct positions before reverse order

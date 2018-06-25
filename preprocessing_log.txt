@@ -1,0 +1,17 @@
+Extracting features...
+ * number of source features: 0.
+ * number of target features: 0.
+Building `Fields` object...
+Building & saving training data...
+Warning. The corpus ../data/iwslt15en-vn/train_reversed.en is larger than 10M bytes, you can set '-max_shard_size' to process it by small shards to use less memory.
+average src size 20.29939917639911 133317
+ * saving train data shard to ../data/iwslt15en-vn.atok.reversed_torch04.train.1.pt.
+Building & saving vocabulary...
+Loading source vocab from ../data/iwslt15en-vn/vocab.en
+Loading target vocab from ../data/iwslt15en-vn/vocab.vi
+ * reloading ../data/iwslt15en-vn.atok.reversed_torch04.train.1.pt.
+ * tgt vocab size: 7710.
+ * src vocab size: 17192.
+Building & saving validation data...
+average src size 18.018673535093367 1553
+ * saving valid data shard to ../data/iwslt15en-vn.atok.reversed_torch04.valid.1.pt.
